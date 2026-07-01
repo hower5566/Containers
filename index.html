@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Container Status WH1</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{--navy:#1a2744;--navy2:#2e3f6e;--accent:#3b82f6;--accentL:#dbeafe;--bg:#f0f4f8;--sur:#fff;--bdr:#e2e8f0;--txt:#1e293b;--muted:#64748b}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--txt);min-height:100vh}
+header{background:var(--navy);color:#fff;padding:0 20px;height:54px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+header h1{font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px}
+.hdr-right{display:flex;align-items:center;gap:10px}
+#btn-settings{background:rgba(255,255,255,.15);border:none;color:#fff;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px}
+#btn-settings:hover{background:rgba(255,255,255,.25)}
+#sync-status{font-size:11px;color:#94a3b8;display:flex;align-items:center;gap:5px}
+#sync-dot{width:7px;height:7px;border-radius:50%;background:#ef4444}
+#sync-dot.ok{background:#22c55e}
+#sync-dot.busy{background:#f59e0b;animation:blink .8s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+#tabbar{background:var(--navy2);display:flex;align-items:center;padding:0 16px;gap:2px;overflow-x:auto;scrollbar-width:none;min-height:44px}
+#tabbar::-webkit-scrollbar{display:none}
+.tab-item{display:flex;align-items:center;gap:6px;padding:10px 14px;font-size:13px;font-weight:500;color:#94a3b8;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;border-radius:4px 4px 0 0;transition:all .15s;user-select:none}
+.tab-item:hover{color:#e2e8f0;background:rgba(255,255,255,.07)}
+.tab-item.active{color:#fff;border-bottom-color:var(--accent)}
+.tab-actions{display:flex;gap:3px;margin-left:2px}
+.tab-btn{font-size:10px;padding:1px 5px;border-radius:3px;border:none;background:rgba(255,255,255,.12);color:#cbd5e1;cursor:pointer;line-height:1.6}
+.tab-btn:hover{background:rgba(255,255,255,.25);color:#fff}
+.tab-right{margin-left:auto;display:flex;align-items:center;gap:6px;flex-shrink:0}
+#btn-archive-panel{background:rgba(255,255,255,.15);border:none;color:#fff;padding:7px 12px;border-radius:6px;font-size:12px;cursor:pointer}
+#btn-archive-panel:hover{background:rgba(255,255,255,.25)}
+#btn-new{padding:7px 14px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;white-space:nowrap}
+#btn-new:hover{background:#2563eb}
+#archive-panel{display:none;position:fixed;right:16px;top:100px;background:#fff;border:1px solid var(--bdr);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.2);min-width:280px;z-index:9999;padding:14px}
+#archive-panel.open{display:block}
+#archive-panel h3{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
+.arch-item{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-radius:7px;transition:background .15s;gap:8px}
+.arch-item:hover{background:var(--bg)}
+.arch-name{font-size:13px;font-weight:500;color:var(--txt)}
+.arch-meta{font-size:11px;color:var(--muted);margin-top:1px}
+.arch-btns{display:flex;gap:6px}
+.arch-restore{padding:4px 10px;border:1.5px solid var(--accent);border-radius:6px;font-size:11px;color:var(--accent);cursor:pointer;background:#fff;font-weight:600}
+.arch-restore:hover{background:var(--accentL)}
+.arch-delete{padding:4px 8px;border:1.5px solid #fca5a5;border-radius:6px;font-size:11px;color:#ef4444;cursor:pointer;background:#fff;font-weight:600}
+.arch-delete:hover{background:#fef2f2}
+#filterbar{background:#fff;border-bottom:1px solid var(--bdr);padding:10px 20px;display:none;gap:8px;flex-wrap:wrap;align-items:center}
+#filterbar.show{display:flex}
+.filter-label{font-size:12px;color:var(--muted);font-weight:600;margin-right:4px}
+.fbtn{padding:5px 12px;border:1.5px solid var(--bdr);border-radius:20px;font-size:12px;cursor:pointer;background:#fff;color:var(--txt);transition:all .15s;font-weight:500}
+.fbtn:hover{border-color:var(--accent);color:var(--accent)}
+.fbtn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+main{padding:20px;max-width:1200px;margin:0 auto}
+#empty{text-align:center;padding:80px 20px;color:var(--muted)}
+#empty .ico{font-size:52px;margin-bottom:16px}
+#empty h2{font-size:20px;color:var(--txt);margin-bottom:8px}
+#empty p{font-size:14px;margin-bottom:24px}
+#loading{text-align:center;padding:60px 20px;color:var(--muted);display:none}
+#loading .spin{font-size:32px;animation:spin 1s linear infinite;display:inline-block;margin-bottom:12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+#bview{display:none}
+.bheader{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px}
+.btitle{font-size:20px;font-weight:700;color:var(--navy)}
+.bmeta{font-size:13px;color:var(--muted);margin-top:3px}
+.batch-stats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px}
+.bstat{background:var(--sur);border:1px solid var(--bdr);border-radius:10px;padding:10px 16px;min-width:100px}
+.bstat-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.bstat-val{font-size:22px;font-weight:700;margin-top:2px}
+.wh-group{margin-bottom:24px}
+.wh-header{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:var(--navy);color:#fff;border-radius:10px 10px 0 0}
+.wh-name{font-size:14px;font-weight:700;letter-spacing:.5px;display:flex;align-items:center;gap:8px}
+.wh-count{font-size:12px;opacity:.65;font-weight:400}
+.wh-prog{display:flex;align-items:center;gap:10px}
+.wh-prog-bar{width:120px;height:6px;background:rgba(255,255,255,.2);border-radius:3px;overflow:hidden}
+.wh-prog-fill{height:100%;background:#22c55e;border-radius:3px;transition:width .4s}
+.wh-prog-txt{font-size:11px;opacity:.8}
+.wh-cards{border:1px solid var(--bdr);border-top:none;border-radius:0 0 10px 10px;overflow:hidden}
+.ccard{background:var(--sur);padding:16px 20px;border-bottom:1px solid var(--bdr);transition:background .15s}
+.ccard:last-child{border-bottom:none}
+.ccard.done-card{background:#f0fdf4}
+.ccard-top{display:grid;grid-template-columns:170px 1fr 100px 120px 80px;gap:12px;align-items:start;margin-bottom:12px}
+.flbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px}
+.fval{font-size:14px;font-weight:600}
+.fval.cnum{font-family:'Courier New',monospace;font-size:14px;color:var(--navy)}
+.fval.eta{color:var(--accent)}
+.parts-y{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;background:#dcfce7;color:#166534}
+.parts-n{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;background:#f1f5f9;color:#475569}
+.pending-row{display:flex;align-items:center;gap:12px}
+.btn-arrive{padding:8px 20px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:background .15s}
+.btn-arrive:hover{background:#2563eb}
+.pending-label{font-size:12px;color:var(--muted)}
+.prog-section{display:flex;align-items:center;gap:12px}
+.prog-steps{display:flex;align-items:center;gap:0;flex:1}
+.prog-step{display:flex;flex-direction:column;align-items:center;flex:1;position:relative}
+.prog-step:not(:last-child)::after{content:'';position:absolute;left:50%;top:14px;width:100%;height:3px;background:var(--bdr);z-index:0}
+.prog-step.done-step:not(:last-child)::after{background:var(--accent)}
+.step-dot{width:28px;height:28px;border-radius:50%;border:3px solid var(--bdr);background:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;z-index:1;position:relative;transition:all .3s}
+.prog-step.done-step .step-dot{border-color:var(--accent);background:var(--accent);color:#fff}
+.prog-step.current-step .step-dot{border-color:var(--accent);background:#fff;color:var(--accent);box-shadow:0 0 0 3px var(--accentL)}
+.step-lbl{font-size:9px;color:var(--muted);margin-top:4px;text-align:center;white-space:nowrap;line-height:1.3}
+.prog-step.current-step .step-lbl{color:var(--accent);font-weight:700}
+.prog-step.done-step .step-lbl{color:var(--navy)}
+.prog-actions{display:flex;gap:8px;flex-shrink:0}
+.btn-prev{padding:7px 14px;border:1.5px solid var(--bdr);border-radius:8px;font-size:12px;cursor:pointer;background:#fff;color:var(--txt);font-weight:600;transition:all .15s;white-space:nowrap}
+.btn-prev:hover:not(:disabled){border-color:var(--muted);background:#f8fafc}
+.btn-prev:disabled{opacity:.3;cursor:not-allowed}
+.btn-next{padding:7px 16px;border:none;border-radius:8px;font-size:12px;cursor:pointer;background:var(--accent);color:#fff;font-weight:600;transition:all .15s;white-space:nowrap}
+.btn-next:hover:not(:disabled){background:#2563eb}
+.btn-next:disabled{opacity:.3;cursor:not-allowed}
+.btn-next.completed-btn{background:#16a34a}
+.upd-time{font-size:10px;color:var(--muted);margin-top:8px;text-align:right}
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:center;justify-content:center}
+.overlay.open{display:flex}
+.modal{background:#fff;border-radius:14px;padding:28px;width:480px;max-width:95vw;box-shadow:0 16px 50px rgba(0,0,0,.2)}
+.modal h2{font-size:17px;margin-bottom:6px;color:var(--navy)}
+.modal .sub{font-size:13px;color:var(--muted);margin-bottom:18px}
+#dropzone{border:2px dashed var(--bdr);border-radius:10px;padding:36px 20px;text-align:center;cursor:pointer;color:var(--muted);transition:all .2s}
+#dropzone.over{border-color:var(--accent);background:var(--accentL)}
+#dropzone .di{font-size:34px;margin-bottom:8px}
+#dropzone p{font-size:13px}
+#fileinput{display:none}
+.frow{margin-top:14px}
+.frow label{font-size:13px;font-weight:600;display:block;margin-bottom:5px}
+.frow input{width:100%;padding:9px 12px;border:1.5px solid var(--bdr);border-radius:8px;font-size:13px}
+.frow input:focus{outline:none;border-color:var(--accent)}
+.mact{display:flex;gap:8px;margin-top:18px;justify-content:flex-end}
+.btn-s{padding:9px 16px;border:1.5px solid var(--bdr);border-radius:8px;font-size:13px;cursor:pointer;background:transparent}
+.btn-s:hover{background:var(--bg)}
+.btn-p{background:var(--accent);color:#fff;border:none;padding:9px 18px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer}
+.btn-p:hover{background:#2563eb}
+.btn-p:disabled{opacity:.4;cursor:not-allowed}
+.steps-guide{background:var(--bg);border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:12px;line-height:1.9}
+.steps-guide strong{color:var(--navy)}
+.no-script-msg{background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:10px 14px;font-size:12px;color:#856404;margin-bottom:14px}
+@media(max-width:700px){.ccard-top{grid-template-columns:1fr 1fr;gap:10px}.prog-section{flex-direction:column;align-items:stretch}.prog-actions{justify-content:center}.step-lbl{font-size:8px}}
+</style>
+</head>
+<body>
+<header>
+  <h1><span>📦</span> Container Status WH1</h1>
+  <div class="hdr-right">
+    <button id="btn-settings">⚙️ Settings</button>
+    <div id="sync-status"><div id="sync-dot"></div><span id="sync-lbl">Not configured</span></div>
+  </div>
+</header>
+<div id="tabbar">
+  <div class="tab-right">
+    <div style="position:relative">
+      <button id="btn-archive-panel">📁 Archive</button>
+      <div id="archive-panel">
+        <h3>Archived Batches</h3>
+        <div id="archive-list"><div style="color:#94a3b8;font-size:13px;padding:8px 0">No archived batches</div></div>
+      </div>
+    </div>
+    <button id="btn-new">＋ New Batch</button>
+  </div>
+</div>
+<div id="filterbar">
+  <span class="filter-label">Filter:</span>
+  <button class="fbtn active" data-filter="all">All</button>
+  <button class="fbtn" data-filter="active">In Progress</button>
+  <button class="fbtn" data-filter="pending">Not Arrived</button>
+  <button class="fbtn" data-filter="done">Completed</button>
+  <button class="fbtn" data-filter="parts-y">Has Parts</button>
+  <button class="fbtn" data-filter="parts-n">No Parts</button>
+</div>
+<main>
+  <div id="loading"><div class="spin">⏳</div><p>Loading from Google Sheets...</p></div>
+  <div id="empty" style="display:none">
+    <div class="ico">🚢</div>
+    <h2>No batches yet</h2>
+    <p>Upload a Container Schedule Excel to start tracking.</p>
+    <button class="btn-p" id="btn-empty-upload">Upload Schedule</button>
+  </div>
+  <div id="bview"></div>
+</main>
+
+<!-- Upload Modal -->
+<div class="overlay" id="upload-modal">
+  <div class="modal">
+    <h2>Upload ETA Schedule</h2>
+    <p class="sub">Upload the weekly Container_Schedule.xlsx</p>
+    <div id="dropzone"><div class="di">📄</div><p><strong>Click to browse</strong> or drag & drop</p><p style="font-size:11px;margin-top:4px">.xlsx files only</p></div>
+    <input type="file" id="fileinput" accept=".xlsx">
+    <div class="frow"><label>Batch name</label><input type="text" id="bname" placeholder="e.g. Week 26 — June 2026"></div>
+    <div class="mact">
+      <button class="btn-s" id="btn-cancel-upload">Cancel</button>
+      <button class="btn-p" id="btn-import" disabled>Import</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings Modal -->
+<div class="overlay" id="settings-modal">
+  <div class="modal">
+    <h2>⚙️ Google Sheets Setup</h2>
+    <p class="sub">Required for all devices to sync data.</p>
+    <div class="steps-guide">
+      <strong>One-time setup:</strong><br>
+      1. Open your Google Sheet → <strong>Extensions → Apps Script</strong><br>
+      2. Replace all code with the new <code>apps_script.gs</code> (v2)<br>
+      3. <strong>Deploy → New deployment → Web App</strong><br>
+      4. Execute as: <strong>Me</strong> · Who has access: <strong>Anyone</strong><br>
+      5. Copy the Web App URL and paste below<br>
+      6. Sheet sharing → <strong>Anyone with link → Viewer</strong>
+    </div>
+    <div class="no-script-msg">⚠️ If you updated the Apps Script code, make sure to create a <strong>New Deployment</strong> (not update existing) to get a new URL.</div>
+    <div class="frow"><label>Apps Script Web App URL</label><input type="text" id="script-url" placeholder="https://script.google.com/macros/s/.../exec"></div>
+    <div class="mact">
+      <button class="btn-s" id="btn-cancel-settings">Cancel</button>
+      <button class="btn-p" id="btn-save-settings">Save & Load Data</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var SHEET_ID = '1VObiRGe-ccGesDQhUMZIhDKFoyc-u_LbJ2RoeeGpIEQ';
+var SCRIPT_URL = localStorage.getItem('ct_url') || '';
+var batches = [];
+var activeBatch = null;
+var pendingFile = null;
+var activeFilter = 'all';
+var IGNORE_WORDS = ['memphis','dallas','chicago','los angeles','new york','houston','atlanta','seattle','port','terminal'];
+var STATUSES = [
+  {v:'arrived',   l:'Arrived'},
+  {v:'unloading', l:'Unloading'},
+  {v:'waiting',   l:'Waiting for Container Open'},
+  {v:'scanning',  l:'Scanning'},
+  {v:'completed', l:'Completed'},
+];
+
+function statusIndex(v){ return STATUSES.findIndex(function(s){ return s.v===v; }); }
+
+function init() {
+  if (SCRIPT_URL) {
+    document.getElementById('script-url').value = SCRIPT_URL;
+    loadAllFromSheets();
+  } else {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('empty').style.display = 'block';
+  }
+  document.getElementById('btn-settings').addEventListener('click', function(){ openModal('settings-modal'); });
+  document.getElementById('btn-new').addEventListener('click', openUpload);
+  document.getElementById('btn-empty-upload').addEventListener('click', openUpload);
+  document.getElementById('btn-cancel-upload').addEventListener('click', function(){ closeModal('upload-modal'); });
+  document.getElementById('btn-cancel-settings').addEventListener('click', function(){ closeModal('settings-modal'); });
+  document.getElementById('btn-import').addEventListener('click', importBatch);
+  document.getElementById('btn-save-settings').addEventListener('click', saveSettings);
+  document.getElementById('fileinput').addEventListener('change', function(e){ if(e.target.files[0]) processFile(e.target.files[0]); });
+  document.getElementById('dropzone').addEventListener('click', function(){ document.getElementById('fileinput').click(); });
+  document.getElementById('dropzone').addEventListener('dragover', function(e){ e.preventDefault(); this.classList.add('over'); });
+  document.getElementById('dropzone').addEventListener('dragleave', function(){ this.classList.remove('over'); });
+  document.getElementById('dropzone').addEventListener('drop', function(e){ e.preventDefault(); this.classList.remove('over'); if(e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0]); });
+  document.getElementById('upload-modal').addEventListener('click', function(e){ if(e.target===this) closeModal('upload-modal'); });
+  document.getElementById('settings-modal').addEventListener('click', function(e){ if(e.target===this) closeModal('settings-modal'); });
+  document.getElementById('btn-archive-panel').addEventListener('click', function(e){ e.stopPropagation(); document.getElementById('archive-panel').classList.toggle('open'); });
+  document.addEventListener('click', function(){ document.getElementById('archive-panel').classList.remove('open'); });
+  document.querySelectorAll('.fbtn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      activeFilter = this.dataset.filter;
+      document.querySelectorAll('.fbtn').forEach(function(b){ b.classList.remove('active'); });
+      this.classList.add('active');
+      var batch = batches.find(function(b){ return b.id===activeBatch; });
+      if (batch) renderBatch(batch);
+    });
+  });
+}
+
+function openModal(id){ document.getElementById(id).classList.add('open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+function setSync(state, lbl){
+  var dot = document.getElementById('sync-dot');
+  dot.className = state==='ok'?'ok':state==='err'?'':state==='busy'?'busy':'';
+  document.getElementById('sync-lbl').textContent = lbl;
+}
+
+// ── Load ALL batches from Sheets on startup ──
+function loadAllFromSheets() {
+  if (!SCRIPT_URL) return;
+  document.getElementById('loading').style.display = 'block';
+  document.getElementById('empty').style.display = 'none';
+  document.getElementById('bview').style.display = 'none';
+  setSync('busy', 'Loading...');
+
+  fetch(SCRIPT_URL + '?action=getAllBatches')
+    .then(function(r){ return r.ok ? r.json() : Promise.reject('fetch failed'); })
+    .then(function(data){
+      document.getElementById('loading').style.display = 'none';
+      if (data && data.ok && data.batches) {
+        batches = data.batches;
+        setSync('ok','Synced');
+        renderTabs();
+        var active = batches.filter(function(b){ return !b.archived; });
+        if (active.length > 0) showBatch(active[active.length-1].id);
+        else document.getElementById('empty').style.display = 'block';
+      } else {
+        setSync('err','Load error');
+        document.getElementById('empty').style.display = 'block';
+      }
+    })
+    .catch(function(err){
+      document.getElementById('loading').style.display = 'none';
+      setSync('err','Load failed');
+      document.getElementById('empty').style.display = 'block';
+    });
+}
+
+// ── Auto-refresh current batch every 15s via CSV ──
+function refreshCurrentBatch() {
+  if (!SHEET_ID || !activeBatch) return;
+  var bid = activeBatch;
+  var url = 'https://docs.google.com/spreadsheets/d/'+SHEET_ID+'/gviz/tq?tqx=out:csv&sheet='+encodeURIComponent(bid);
+  fetch(url)
+    .then(function(r){ return r.ok ? r.text() : Promise.reject('not found'); })
+    .then(function(csv){
+      var rows = parseCSV(csv);
+      var batch = batches.find(function(b){ return b.id===bid; });
+      if (!batch || rows.length < 3) return;
+      var changed = false;
+      for (var i = 2; i < rows.length; i++) {
+        var r = rows[i];
+        var id = r[0] ? r[0].trim() : null;
+        var status = r[7] ? r[7].trim() : null;
+        var upd = r[8] ? r[8].trim() : '';
+        if (!id || !status) continue;
+        var con = batch.containers.find(function(c){ return c.id===id; });
+        if (con && con.status !== status){ con.status=status; con.updatedAt=upd; changed=true; }
+      }
+      if (changed) renderBatch(batch);
+      setSync('ok','Synced '+new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}));
+    })
+    .catch(function(){ /* silent fail */ });
+}
+
+function parseCSV(text) {
+  var rows=[], lines=text.split('\n');
+  for (var i=0;i<lines.length;i++){
+    var line=lines[i].trim(); if(!line) continue;
+    var cells=[],cur='',inQ=false;
+    for (var j=0;j<line.length;j++){
+      var ch=line[j];
+      if(ch==='"'){inQ=!inQ;}
+      else if(ch===','&&!inQ){cells.push(cur.trim());cur='';}
+      else{cur+=ch;}
+    }
+    cells.push(cur.trim()); rows.push(cells);
+  }
+  return rows;
+}
+setInterval(function(){
+  refreshCurrentBatch();
+}, 15000);
+
+// ── Tabs ──
+function renderTabs() {
+  var bar = document.getElementById('tabbar');
+  bar.querySelectorAll('.tab-item').forEach(function(t){ t.remove(); });
+  var archList = document.getElementById('archive-list');
+  archList.innerHTML = '';
+  var hasArch = false;
+  var tabRight = document.querySelector('.tab-right');
+
+  batches.forEach(function(b){
+    if (b.archived) {
+      hasArch = true;
+      var item = document.createElement('div');
+      item.className = 'arch-item';
+      item.innerHTML = '<div><div class="arch-name">'+b.name+'</div><div class="arch-meta">'+b.importedAt+' · '+b.containers.length+' containers</div></div>'+
+        '<div class="arch-btns">'+
+        '<button class="arch-restore">Restore</button>'+
+        '<button class="arch-delete">✕</button>'+
+        '</div>';
+      item.querySelector('.arch-restore').addEventListener('click', function(){
+        b.archived = false;
+        sheetsPost({action:'archiveBatch', batchId:b.id, archived:false});
+        renderTabs();
+        document.getElementById('archive-panel').classList.remove('open');
+        showBatch(b.id);
+      });
+      item.querySelector('.arch-delete').addEventListener('click', function(){
+        if (!confirm('Remove "'+b.name+'" from UI? Data stays in Google Sheets.')) return;
+        batches = batches.filter(function(x){ return x.id!==b.id; });
+        renderTabs();
+      });
+      archList.appendChild(item);
+      return;
+    }
+    var t = document.createElement('div');
+    t.className = 'tab-item'+(b.id===activeBatch?' active':'');
+    var nameSpan = document.createElement('span');
+    nameSpan.textContent = b.name;
+    t.appendChild(nameSpan);
+    var actions = document.createElement('div');
+    actions.className = 'tab-actions';
+    var archBtn = document.createElement('button');
+    archBtn.className = 'tab-btn';
+    archBtn.textContent = '📁';
+    archBtn.title = 'Archive';
+    archBtn.addEventListener('click', function(e){
+      e.stopPropagation();
+      b.archived = true;
+      sheetsPost({action:'archiveBatch', batchId:b.id, archived:true});
+      renderTabs();
+      if (b.id===activeBatch) {
+        var next = batches.slice().reverse().find(function(x){ return !x.archived; });
+        if (next) showBatch(next.id);
+        else { document.getElementById('bview').style.display='none'; document.getElementById('filterbar').classList.remove('show'); document.getElementById('empty').style.display='block'; }
+      }
+    });
+    actions.appendChild(archBtn);
+    t.appendChild(actions);
+    t.addEventListener('click', function(e){ if(e.target.closest('.tab-actions')) return; showBatch(b.id); });
+    bar.insertBefore(t, tabRight);
+  });
+  if (!hasArch) archList.innerHTML = '<div style="color:#94a3b8;font-size:13px;padding:8px 0">No archived batches</div>';
+}
+
+function showBatch(id) {
+  activeBatch = id;
+  var batch = batches.find(function(b){ return b.id===id; });
+  if (!batch) return;
+  document.getElementById('empty').style.display = 'none';
+  document.getElementById('bview').style.display = 'block';
+  document.getElementById('filterbar').classList.add('show');
+  renderTabs();
+  renderBatch(batch);
+}
+
+function renderBatch(batch) {
+  var filtered = batch.containers.filter(function(c){
+    if (activeFilter==='all') return true;
+    if (activeFilter==='active') return c.status!=='pending'&&c.status!=='completed';
+    if (activeFilter==='pending') return c.status==='pending';
+    if (activeFilter==='done') return c.status==='completed';
+    if (activeFilter==='parts-y') return c.parts==='Y';
+    if (activeFilter==='parts-n') return c.parts!=='Y';
+    return true;
+  });
+  var total=batch.containers.length, done=batch.containers.filter(function(c){ return c.status==='completed'; }).length;
+  var inprog=batch.containers.filter(function(c){ return c.status!=='pending'&&c.status!=='completed'; }).length;
+  var whGroups={}, whOrder=[];
+  filtered.forEach(function(c){ var wk=c.warehouse||'Unknown'; if(!whGroups[wk]){ whGroups[wk]=[]; whOrder.push(wk); } whGroups[wk].push(c); });
+
+  var html='<div class="bheader"><div><div class="btitle">'+batch.name+'</div><div class="bmeta">Imported '+batch.importedAt+' · '+total+' containers</div></div></div>';
+  html+='<div class="batch-stats">';
+  html+='<div class="bstat"><div class="bstat-lbl">Total</div><div class="bstat-val">'+total+'</div></div>';
+  html+='<div class="bstat"><div class="bstat-lbl">In Progress</div><div class="bstat-val" style="color:#f59e0b">'+inprog+'</div></div>';
+  html+='<div class="bstat"><div class="bstat-lbl">Completed</div><div class="bstat-val" style="color:#16a34a">'+done+'</div></div>';
+  html+='<div class="bstat"><div class="bstat-lbl">Remaining</div><div class="bstat-val" style="color:#64748b">'+(total-done)+'</div></div>';
+  html+='</div>';
+  if (filtered.length===0) html+='<div style="text-align:center;padding:40px;color:var(--muted);font-size:14px">No containers match this filter.</div>';
+  whOrder.forEach(function(wh){
+    var list=whGroups[wh], whDone=list.filter(function(c){ return c.status==='completed'; }).length;
+    var pct=list.length>0?Math.round(whDone/list.length*100):0;
+    html+='<div class="wh-group"><div class="wh-header"><div class="wh-name">🏭 '+wh.toUpperCase()+'<span class="wh-count"> · '+list.length+' containers</span></div>';
+    html+='<div class="wh-prog"><div class="wh-prog-bar"><div class="wh-prog-fill" style="width:'+pct+'%"></div></div><span class="wh-prog-txt">'+whDone+'/'+list.length+' done</span></div></div>';
+    html+='<div class="wh-cards">';
+    list.forEach(function(c){ html+=cardHTML(c); });
+    html+='</div></div>';
+  });
+  document.getElementById('bview').innerHTML = html;
+  document.querySelectorAll('.btn-arrive').forEach(function(btn){ btn.addEventListener('click', function(){ arriveContainer(this.dataset.id); }); });
+  document.querySelectorAll('.btn-next').forEach(function(btn){ btn.addEventListener('click', function(){ stepContainer(this.dataset.id,1); }); });
+  document.querySelectorAll('.btn-prev').forEach(function(btn){ btn.addEventListener('click', function(){ stepContainer(this.dataset.id,-1); }); });
+}
+
+function cardHTML(c) {
+  var si=statusIndex(c.status), isPending=c.status==='pending', isCompleted=c.status==='completed';
+  var partsHTML=c.parts==='Y'?'<span class="parts-y">Y</span>':'<span class="parts-n">N</span>';
+  var topHTML='<div class="ccard-top">'+
+    '<div><div class="flbl">Container #</div><div class="fval cnum">'+c.containerNum+'</div></div>'+
+    '<div><div class="flbl">Product</div><div class="fval">'+c.product+'</div></div>'+
+    '<div><div class="flbl">PO #</div><div class="fval">'+c.po+'</div></div>'+
+    '<div><div class="flbl">ETA (MEM)</div><div class="fval eta">'+c.eta+'</div></div>'+
+    '<div><div class="flbl">Parts</div><div class="fval">'+partsHTML+'</div></div>'+
+  '</div>';
+  var bodyHTML='';
+  if (isPending) {
+    bodyHTML='<div class="pending-row"><button class="btn-arrive" data-id="'+c.id+'">Arrived →</button><span class="pending-label">Not yet arrived</span></div>';
+  } else {
+    var stepsHTML='<div class="prog-steps">';
+    STATUSES.forEach(function(s,i){
+      var cls='prog-step'+(i<si?' done-step':i===si?' current-step':'');
+      stepsHTML+='<div class="'+cls+'"><div class="step-dot">'+(i<si?'✓':(i+1))+'</div><div class="step-lbl">'+s.l+'</div></div>';
+    });
+    stepsHTML+='</div>';
+    var nextLbl=isCompleted?'✓ Done':(si===STATUSES.length-2?'✓ Complete':'Next →');
+    var nextCls=isCompleted?'btn-next completed-btn':'btn-next';
+    bodyHTML='<div class="prog-section">'+stepsHTML+
+      '<div class="prog-actions">'+
+        '<button class="btn-prev" data-id="'+c.id+'"'+(si<=0?' disabled':'')+'>← Back</button>'+
+        '<button class="'+nextCls+'" data-id="'+c.id+'"'+(isCompleted?' disabled':'')+'>'+nextLbl+'</button>'+
+      '</div></div>';
+  }
+  return '<div class="ccard'+(isCompleted?' done-card':'')+'" id="card-'+c.id+'">'+topHTML+bodyHTML+(c.updatedAt?'<div class="upd-time">Updated '+c.updatedAt+'</div>':'')+'</div>';
+}
+
+function arriveContainer(cid) {
+  var batch=batches.find(function(b){ return b.id===activeBatch; });
+  var con=batch.containers.find(function(c){ return c.id===cid; });
+  var now=new Date().toLocaleString('en-US',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+  con.status='arrived'; con.updatedAt=now;
+  sheetsPost({action:'updateStatus',batchId:activeBatch,containerId:cid,status:'arrived',updatedAt:now});
+  renderBatch(batch);
+}
+
+function stepContainer(cid,dir) {
+  var batch=batches.find(function(b){ return b.id===activeBatch; });
+  var con=batch.containers.find(function(c){ return c.id===cid; });
+  var si=statusIndex(con.status);
+  if (si===0&&dir===-1){ con.status='pending'; }
+  else { var newSi=Math.max(0,Math.min(STATUSES.length-1,si+dir)); if(newSi===si) return; con.status=STATUSES[newSi].v; }
+  var now=new Date().toLocaleString('en-US',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+  con.updatedAt=now;
+  sheetsPost({action:'updateStatus',batchId:activeBatch,containerId:cid,status:con.status,updatedAt:now});
+  renderBatch(batch);
+}
+
+function openUpload() {
+  pendingFile=null;
+  document.getElementById('btn-import').disabled=true;
+  document.getElementById('dropzone').innerHTML='<div class="di">📄</div><p><strong>Click to browse</strong> or drag & drop</p><p style="font-size:11px;margin-top:4px">.xlsx files only</p>';
+  document.getElementById('fileinput').value='';
+  var d=new Date(), wk=Math.ceil((((d-new Date(d.getFullYear(),0,1))/86400000)+new Date(d.getFullYear(),0,1).getDay()+1)/7);
+  document.getElementById('bname').value='Week '+wk+' — '+d.toLocaleString('en-US',{month:'long',year:'numeric'});
+  openModal('upload-modal');
+}
+function processFile(file){ pendingFile=file; document.getElementById('btn-import').disabled=false; document.getElementById('dropzone').innerHTML='<div class="di">✅</div><p><strong>'+file.name+'</strong></p><p style="font-size:11px;margin-top:4px">Ready to import</p>'; }
+
+function importBatch() {
+  if (!pendingFile) return;
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var data=new Uint8Array(e.target.result);
+    var wb=XLSX.read(data,{type:'array',cellDates:true});
+    var containers=[];
+    wb.SheetNames.forEach(function(sn){
+      var ws=wb.Sheets[sn];
+      // Use raw:true for everything to avoid date misparse, handle dates manually
+      var rawRows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
+      var currentWarehouse=null, headerPassed=false;
+      rawRows.forEach(function(rawRow){
+        var nonNull=rawRow.filter(function(v){ return v!==null&&v!==undefined&&String(v).trim()!==''; });
+        if (nonNull.length===0) return;
+        // Detect header row by checking for string containing 'container'
+        var strVals=nonNull.filter(function(v){ return typeof v==='string'; });
+        var rowStr=strVals.join(' ').toLowerCase();
+        if (rowStr.indexOf('container')>-1&&rowStr.indexOf('eta')>-1){ headerPassed=true; return; }
+        // Detect warehouse name: single non-null, non-date, non-number string value
+        if (nonNull.length===1){
+          var v=nonNull[0];
+          if (typeof v==='string'){
+            var isIgnored=IGNORE_WORDS.some(function(iw){ return v.toLowerCase().indexOf(iw)>-1; });
+            if (!isIgnored){ currentWarehouse=v.trim(); return; }
+          }
+          return; // single number or date = skip
+        }
+        if (!headerPassed||!currentWarehouse) return;
+        // Container# is at index 3, must match pattern
+        var containerNum=rawRow[3]?String(rawRow[3]).trim():null;
+        if (!containerNum||!/^[A-Z]{4}\d{7}$/.test(containerNum)) return;
+        // ETA at index 1 - may be Excel serial number or Date
+        var eta='';
+        var rawEta=rawRow[1];
+        if (rawEta instanceof Date){
+          eta=(rawEta.getMonth()+1).toString().padStart(2,'0')+'/'+(rawEta.getDate()).toString().padStart(2,'0')+'/'+rawEta.getFullYear();
+        } else if (typeof rawEta==='number'){
+          // Excel date serial to JS date
+          var d=new Date(Math.round((rawEta-25569)*86400000));
+          eta=(d.getUTCMonth()+1).toString().padStart(2,'0')+'/'+(d.getUTCDate()).toString().padStart(2,'0')+'/'+d.getUTCFullYear();
+        } else if (rawEta){ eta=String(rawEta); }
+        // Product at index 5
+        var product=rawRow[5]?String(rawRow[5]).trim():'';
+        // Parts at index 7 - must be Y or N string
+        var rawParts=rawRow[7];
+        var parts='N';
+        if (typeof rawParts==='string'&&rawParts.trim().toUpperCase()==='Y') parts='Y';
+        // PO# at index 9 - force to integer string
+        var po='';
+        var rawPo=rawRow[9];
+        if (rawPo!==null&&rawPo!==undefined){
+          if (typeof rawPo==='number') po=String(Math.round(rawPo));
+          else if (typeof rawPo==='string') po=rawPo.replace(/\.0$/,'').trim();
+        }
+        containers.push({id:containerNum,warehouse:currentWarehouse,containerNum:containerNum,product:product,parts:parts,po:po,eta:eta,status:'pending',updatedAt:''});
+      });
+    });
+    var bid='batch_'+Date.now();
+    var bname=document.getElementById('bname').value||'Batch '+(batches.length+1);
+    var nb={id:bid,name:bname,importedAt:new Date().toLocaleDateString('en-US'),archived:false,containers:containers};
+    batches.push(nb);
+    sheetsPost({action:'createBatch',batch:nb});
+    closeModal('upload-modal');
+    renderTabs();
+    showBatch(bid);
+  };
+  reader.readAsArrayBuffer(pendingFile);
+}
+
+function sheetsPost(payload) {
+  if (!SCRIPT_URL) return;
+  setSync('busy','Syncing...');
+  fetch(SCRIPT_URL,{method:'POST',mode:'no-cors',body:JSON.stringify(payload)})
+    .then(function(){ setSync('ok','Synced '+new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})); })
+    .catch(function(){ setSync('err','Sync failed'); });
+}
+
+function saveSettings() {
+  var url=document.getElementById('script-url').value.trim();
+  if (!url) return;
+  SCRIPT_URL=url;
+  localStorage.setItem('ct_url',url);
+  closeModal('settings-modal');
+  loadAllFromSheets();
+}
+
+init();
+</script>
+</body>
+</html>
